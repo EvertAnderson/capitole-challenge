@@ -1,0 +1,13 @@
+services:
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - MongoDb__ConnectionString=mongodb://mongo:27017
+      - MongoDb__MongoDbDatabaseName=FleetDb
+    ports:
+      - "8080:8080"
+
+  mongo:
+    ports:
+      - "27017:27017"

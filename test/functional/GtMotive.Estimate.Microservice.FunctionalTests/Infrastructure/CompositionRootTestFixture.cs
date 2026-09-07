@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using EphemeralMongo;
 using GtMotive.Estimate.Microservice.Api;
 using GtMotive.Estimate.Microservice.Infrastructure;
+using GtMotive.Estimate.Microservice.Infrastructure.MongoDb.Settings;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,20 +15,28 @@ using Xunit;
 
 namespace GtMotive.Estimate.Microservice.FunctionalTests.Infrastructure
 {
-    internal sealed class CompositionRootTestFixture : IDisposable, IAsyncLifetime
+    public sealed class CompositionRootTestFixture : IDisposable, IAsyncLifetime
     {
+        private readonly IMongoRunner _mongoRunner;
         private readonly ServiceProvider _serviceProvider;
 
         public CompositionRootTestFixture()
         {
+            _mongoRunner = MongoRunner.Run(new MongoRunnerOptions { UseSingleNodeReplicaSet = false });
+
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["MongoDb:ConnectionString"] = _mongoRunner.ConnectionString,
+                    ["MongoDb:MongoDbDatabaseName"] = "FleetFunctionalTests",
+                })
                 .AddEnvironmentVariables()
                 .Build();
 
             var services = new ServiceCollection();
             Configuration = configuration;
-            ConfigureServices(services);
+            ConfigureServices(services, configuration);
             services.AddSingleton<IConfiguration>(configuration);
             _serviceProvider = services.BuildServiceProvider();
         }
@@ -39,6 +50,7 @@ namespace GtMotive.Estimate.Microservice.FunctionalTests.Infrastructure
 
         public async Task DisposeAsync()
         {
+            _mongoRunner.Dispose();
             await Task.CompletedTask;
         }
 
@@ -89,11 +101,13 @@ namespace GtMotive.Estimate.Microservice.FunctionalTests.Infrastructure
             _serviceProvider.Dispose();
         }
 
-        private static void ConfigureServices(IServiceCollection services)
+        private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
             services.AddApiDependencies();
             services.AddLogging();
             services.AddBaseInfrastructure(true);
+            services.Configure<MongoDbSettings>(configuration.GetSection("MongoDb"));
+            services.AddFleetInfrastructure();
         }
     }
 }

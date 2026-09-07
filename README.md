@@ -1,3 +1,91 @@
+# Fleet Rental Microservice
+
+Implementation of the Capitole technical challenge on top of the hexagonal architecture template
+documented below. It manages a vehicle rental fleet.
+
+## Business rules
+
+- A new vehicle can be registered in the fleet, listed while available, rented and returned.
+- A vehicle cannot join the fleet if it was manufactured more than **5 years** ago
+  (`Vehicle.Register`, [Vehicle.cs](src/GtMotive.Estimate.Microservice.Domain/Fleet/Vehicle.cs)).
+- The same renter cannot have more than **one active rental** at a time, enforced fleet-wide by
+  `FleetRentalService` ([FleetRentalService.cs](src/GtMotive.Estimate.Microservice.Domain/Fleet/FleetRentalService.cs)),
+  independently of which vehicle is being rented.
+
+## Where the code lives (hexagonal layers)
+
+| Layer | Project | Fleet contents |
+|---|---|---|
+| Domain | `GtMotive.Estimate.Microservice.Domain` | `Fleet/Vehicle.cs` (aggregate root), value objects, domain exceptions, `IVehicleRepository` (port), `FleetRentalService` (domain service) |
+| Application | `GtMotive.Estimate.Microservice.ApplicationCore` | `Fleet/{CreateVehicle,ListAvailableVehicles,RentVehicle,ReturnVehicle}` use cases, input/output ports |
+| Infrastructure | `GtMotive.Estimate.Microservice.Infrastructure` | `MongoDb/Fleet/VehicleRepository.cs` (adapter implementing `IVehicleRepository`), `SystemClock` |
+| User Interface | `GtMotive.Estimate.Microservice.Api` | `Controllers/VehiclesController.cs`, MediatR requests/handlers, presenters, view models |
+
+## API
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/vehicles` | Registers a new vehicle in the fleet |
+| `GET` | `/api/vehicles` | Lists the vehicles currently available to rent |
+| `POST` | `/api/vehicles/{vehicleId}/rent` | Rents a vehicle to a renter (body: `{ "renterId": "..." }`) |
+| `POST` | `/api/vehicles/{vehicleId}/return` | Returns a rented vehicle |
+
+Swagger UI is available at `/swagger` when running in the `Development` environment.
+
+## Running it locally
+
+No external dependency needs to be installed manually — MongoDB is provided through Docker.
+
+### Option A — Docker Compose (recommended)
+
+```bash
+cd src
+docker compose up --build
+```
+
+This starts the API (`http://localhost:8080`, Swagger at `/swagger`) and a MongoDB container,
+already wired together. Data persists in a named volume (`fleet-mongo-data`) across restarts.
+
+### Option B — Visual Studio
+
+Open `src/microservice.sln`, select **docker-compose** as the startup project and run (F5).
+Visual Studio builds the image from `GtMotive.Estimate.Microservice.Host/Dockerfile` and starts
+the `mongo` dependency automatically, per `src/docker-compose.yml` / `docker-compose.override.yml`.
+
+### Option C — `dotnet run` against a local MongoDB
+
+```bash
+docker run -d -p 27017:27017 --name fleet-mongo mongo:7.0
+dotnet run --project src/GtMotive.Estimate.Microservice.Host
+```
+
+`appsettings.Development.json` already points at `mongodb://localhost:27017`.
+
+## Running the tests
+
+```bash
+dotnet test src/microservice.sln
+```
+
+Three levels of automated tests are included, each exercising the architecture at a different
+boundary:
+
+- **Unit** (`test/unit`) — `Fleet/VehicleTests.cs` validates `Vehicle.Register/Rent/Return`
+  with zero dependencies (pure domain logic), and `FleetRentalServiceTests.cs` exercises the
+  cross-vehicle rental rule against a mocked `IVehicleRepository` (Moq).
+- **Functional** (`test/functional`) — `Specs/FleetLifecycleTests.cs` drives the MediatR
+  request handlers directly (`CompositionRootTestFixture`), exercising the full
+  Api → ApplicationCore → Domain → Infrastructure chain **without** an HTTP host.
+- **Infrastructure** (`test/infrastructure`) — `Specs/VehiclesControllerTests.cs` sends real
+  HTTP requests through `TestServer` (`GenericInfrastructureTestServerFixture`) to a REST
+  endpoint, exercising routing, model binding and the exception filter at the host level.
+
+Functional and infrastructure tests spin up a disposable, real MongoDB instance per test run via
+[EphemeralMongo](https://github.com/asimmon/ephemeral-mongo) — no manual MongoDB installation or
+running Docker daemon is required to execute `dotnet test`.
+
+---
+
 # Sample Implementation of Hexagonal Architecture in a Microservice
 ## Index
 ### [Introduction](#introduction)

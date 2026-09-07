@@ -1,0 +1,16 @@
+services:
+  api:
+    image: capitolechallenge/fleet-api
+    build:
+      context: ..
+      dockerfile: src/GtMotive.Estimate.Microservice.Host/Dockerfile
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7.0
+    volumes:
+      - fleet-mongo-data:/data/db
+
+volumes:
+  fleet-mongo-data:

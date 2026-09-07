@@ -1,0 +1,16 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/.idea
+**/bin
+**/obj
+**/TestResults
+**/*.user
+**/*.suo
+**/test
+**/.attachments
+**/*.md
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore

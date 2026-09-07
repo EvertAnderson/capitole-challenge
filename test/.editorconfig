@@ -1,0 +1,6 @@
+# Test method names follow the MethodUnderTest_Scenario_ExpectedResult convention, which requires underscores.
+[*.cs]
+dotnet_diagnostic.CA1707.severity = none
+
+# Test fixtures and base classes must be public so xUnit can inject them into public [Fact] test classes.
+dotnet_diagnostic.CA1515.severity = none
